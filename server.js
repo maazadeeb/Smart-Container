@@ -1,10 +1,10 @@
 #!/bin/env node
 //  OpenShift sample Node application
-var express = require('express');
-var fs      = require('fs');
-var bodyParser = require('body-parser');
-var mongojs = require('mongojs');
-var ip = require('ip');
+var express = require("express");
+var fs      = require("fs");
+var bodyParser = require("body-parser");
+var mongojs = require("mongojs");
+var ip = require("ip");
 
 
 /**
@@ -14,6 +14,8 @@ var SampleApp = function() {
 
     //  Scope.
     var self = this;
+    var failure = {"status": false};
+    var success = {"status": true};
 
 
     /*  ================================================================  */
@@ -31,11 +33,11 @@ var SampleApp = function() {
         if (typeof self.ipaddress === "undefined") {
             //  Log errors on OpenShift but continue w/ 127.0.0.1 - this
             //  allows us to run/test the app locally.
-            console.warn('No OPENSHIFT_NODEJS_IP var');
+            console.warn("No OPENSHIFT_NODEJS_IP var");
             self.ipaddress = ip.address();
         };
 
-        self.connectionString = "127.0.0.1/db";
+        self.connectionString = "127.0.0.1/builder";
     };
 
 
@@ -53,11 +55,11 @@ var SampleApp = function() {
      */
     self.terminator = function(sig){
         if (typeof sig === "string") {
-           console.log('%s: Received %s - terminating sample app ...',
+           console.log("%s: Received %s - terminating sample app ...",
                        Date(Date.now()), sig);
            process.exit(1);
         }
-        console.log('%s: Node server stopped.', Date(Date.now()) );
+        console.log("%s: Node server stopped.", Date(Date.now()) );
     };
 
 
@@ -66,11 +68,11 @@ var SampleApp = function() {
      */
     self.setupTerminationHandlers = function(){
         //  Process on exit and signals.
-        process.on('exit', function() { self.terminator(); });
+        process.on("exit", function() { self.terminator(); });
 
-        // Removed 'SIGPIPE' from the list - bugz 852598.
-        ['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT',
-         'SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM'
+        // Removed "SIGPIPE" from the list - bugz 852598.
+        ["SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT",
+         "SIGBUS", "SIGFPE", "SIGUSR1", "SIGSEGV", "SIGUSR2", "SIGTERM"
         ].forEach(function(element, index, array) {
             process.on(element, function() { self.terminator(element); });
         });
@@ -88,14 +90,40 @@ var SampleApp = function() {
         self.getRoutes = { };
         self.postRoutes = { };
 
-        self.getRoutes['/:containerId/:weight'] = function(req, res) {
-            res.setHeader('Content-Type', 'application/json');
-            console.log(req.params.containerId);
-            console.log(req.params.weight);
+        self.getRoutes["/getContainers"] = function(req, res) {
+            console.log("Get containers..")
+            res.setHeader("Content-Type", "application/json");
+            
+            self.db.container.find({}, {_id: false}).sort(
+            	{containerId: 1}, 
+            	function(err, docs) {
+	            	if (!err) {
+	            		res.json(docs);
+	            	} else {
+	            		res.json(failure);
+					}
+				}
+			);
+        };
 
-            var result = {};
-            result.status = true;
-            res.json(result);
+        self.postRoutes["/update/:containerId/:weight"] = function(req, res) {
+            var containerIdParam = parseInt(req.params.containerId);
+            var weightParam = parseFloat(req.params.weight);
+            var dateParam = Math.floor(Date.now() / 1000);
+            console.log("Updating container %d with %d", containerIdParam, weightParam);
+            res.setHeader("Content-Type", "application/json");
+
+            self.db.container.update({containerId: containerIdParam}, {$push: {itemWeight: weightParam, date: dateParam}},
+            	function (err, updated) {
+            		if(!err) {
+            			res.json(success);
+            		} else {
+            			res.json(failure);
+            		}
+
+            	}
+            );
+            
         };
 
     };
@@ -113,7 +141,7 @@ var SampleApp = function() {
         }));
         self.app.use(bodyParser.json());
         self.app.use(bodyParser.raw());
-        self.db = mongojs(self.connectionString);
+        self.db = mongojs(self.connectionString, ["container"]);
 
         //  Adding handlers for HTTP GET.
         for (var r in self.getRoutes) {
@@ -145,7 +173,7 @@ var SampleApp = function() {
     self.start = function() {
         //  Start the app on the specific interface (and port).
         self.app.listen(self.port, self.ipaddress, function() {
-            console.log('Node server started on %s:%d ...', self.ipaddress, self.port);
+            console.log("Node server started on %s:%d ...", self.ipaddress, self.port);
         });
     };
 
