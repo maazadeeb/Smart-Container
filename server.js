@@ -124,7 +124,7 @@ var SampleApp = function() {
 
         self.getRoutes["/getNutrition/:containerId"] = function (req, res) {
         	var containerIdParam = parseInt(req.params.containerId);
-        	console.log("Get nutrition for container %d", containerIdParam);
+        	console.log("Get nutrition for container %d..", containerIdParam);
         	res.setHeader("Content-Type", "application/json");
 
         	self.db.container.findOne({containerId: containerIdParam}, {_id: false, item: true}, function (err, doc) {
@@ -145,11 +145,18 @@ var SampleApp = function() {
         	});
         };
 
+        /*self.getRoutes["/getRecipes"] = function (req, res) {
+        	console.log("Get all recipes..");
+        	res.setHeader("Content-Type", "application/json");
+
+
+        }*/
+
         self.postRoutes["/update/:containerId/:weight"] = function(req, res) {
             var containerIdParam = parseInt(req.params.containerId);
             var weightParam = parseFloat(req.params.weight);
             var dateParam = Math.floor(Date.now() / 1000);
-            console.log("Updating container %d with %d", containerIdParam, weightParam);
+            console.log("Updating container %d with %d..", containerIdParam, weightParam);
             res.setHeader("Content-Type", "application/json");
 
             self.db.container.update({containerId: containerIdParam}, {$push: {itemWeight: weightParam, date: dateParam}},
@@ -163,6 +170,24 @@ var SampleApp = function() {
             	}
             );
             
+        };
+
+        self.postRoutes["/addContainer/:containerId/:item"] = function (req, res) {
+        	var containerIdParam = parseInt(req.params.containerId);
+        	var itemParam = req.params.item;
+        	console.log("Creating container %d with item %s", containerIdParam, itemParam);
+        	res.setHeader("Content-Type", "application/json");
+
+        	self.db.container.findAndModify({
+        		query: {containerId: containerIdParam},
+        		update: {$set: {item: itemParam, itemWeight: [], date: []}},
+        	}, function (err, doc) {
+        		if(!err) {
+        			res.json(success);
+        		} else {
+        			res.json(failure);
+        		}
+        	});
         };
 
     };
