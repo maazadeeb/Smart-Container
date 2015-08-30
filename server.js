@@ -91,10 +91,10 @@ var SampleApp = function() {
         self.postRoutes = { };
 
         self.getRoutes["/getContainers"] = function(req, res) {
-            console.log("Get containers..")
+            console.log("Get containers..");
             res.setHeader("Content-Type", "application/json");
             
-            self.db.container.find({}, {_id: false}).sort(
+            self.db.container.find({}, {_id: false, itemWeight: { $slice: -10}, date: { $slice: -10}}).sort(
             	{containerId: 1}, 
             	function(err, docs) {
 	            	if (!err) {
@@ -104,6 +104,45 @@ var SampleApp = function() {
 					}
 				}
 			);
+        };
+
+        self.getRoutes["/getContainer/:containerId"] = function(req, res) {
+            var containerIdParam = parseInt(req.params.containerId);
+            console.log("Get container number %d..", containerIdParam);
+            res.setHeader("Content-Type", "application/json");
+            
+            self.db.container.findOne({containerId: containerIdParam}, {_id: false, itemWeight: { $slice: -10}, date: { $slice: -10}}, 
+            	function(err, doc) {
+	            	if (!err) {
+	            		res.json(doc);
+	            	} else {
+	            		res.json(failure);
+					}
+				}
+			);
+        };
+
+        self.getRoutes["/getNutrition/:containerId"] = function (req, res) {
+        	var containerIdParam = parseInt(req.params.containerId);
+        	console.log("Get nutrition for container %d", containerIdParam);
+        	res.setHeader("Content-Type", "application/json");
+
+        	self.db.container.findOne({containerId: containerIdParam}, {_id: false, item: true}, function (err, doc) {
+        		if(!err) {
+        			
+        			self.db.nutrition.findOne({item: doc.item}, {_id: false}, function (err, doc) {
+        				if(!err) {
+        					res.json(doc);
+        				} else {
+        					res.json(failure);
+        				}
+        			});
+        		}
+        		else {
+        			res.json(failure);
+        		}
+        		
+        	});
         };
 
         self.postRoutes["/update/:containerId/:weight"] = function(req, res) {
@@ -141,7 +180,7 @@ var SampleApp = function() {
         }));
         self.app.use(bodyParser.json());
         self.app.use(bodyParser.raw());
-        self.db = mongojs(self.connectionString, ["container"]);
+        self.db = mongojs(self.connectionString, ["container", "nutrition"]);
 
         //  Adding handlers for HTTP GET.
         for (var r in self.getRoutes) {
