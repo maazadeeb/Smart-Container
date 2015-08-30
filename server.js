@@ -128,7 +128,7 @@ var SampleApp = function() {
         	res.setHeader("Content-Type", "application/json");
 
         	self.db.container.findOne({containerId: containerIdParam}, {_id: false, item: true}, function (err, doc) {
-        		if(!err) {
+        		if(!err && doc) {
         			
         			self.db.nutrition.findOne({item: doc.item}, {_id: false}, function (err, doc) {
         				if(!err) {
@@ -145,12 +145,54 @@ var SampleApp = function() {
         	});
         };
 
-        /*self.getRoutes["/getRecipes"] = function (req, res) {
+        self.getRoutes["/getRecipes"] = function (req, res) {
         	console.log("Get all recipes..");
         	res.setHeader("Content-Type", "application/json");
 
+        	self.db.recipe.find({}, {_id: false}, function (err, docs) {
+        		if(!err) {
+        			res.json(docs);
+        		} else {
+        			res.json(failure);
+        		}
+        	});
+		};
 
-        }*/
+		self.getRoutes["/getRecipe/:recipeName"] = function (req, res) {
+			var recipeNameParam = req.params.recipeName;
+			console.log("Getting recipe for %s", recipeNameParam);
+			res.setHeader("Content-Type", "application/json");
+
+			self.db.recipe.findOne({recipeName: recipeNameParam}, {_id: false}, function (err, doc) {
+				if(!err && doc) {
+					var result = {};
+					result.recipeName = doc.recipeName;
+					result.ingredients = [];
+					var recipeIngredients = doc.ingredients;
+					self.db.nutrition.find({}, {item: true, _id: false}, function (err, docs) {
+						//console.log(recipeIngredients);
+						//console.log(docs);
+					
+						for(var i in recipeIngredients) {
+							var ingredientStatus = {};
+							ingredientStatus.name = recipeIngredients[i];
+							ingredientStatus.isPresent = false;
+
+							for(var j in docs) {
+								if(docs[j].item == recipeIngredients[i]) {
+									ingredientStatus.isPresent = true;
+									break;
+								}
+							}
+							result.ingredients.push(ingredientStatus);
+						}
+						res.json(result);
+					});
+				} else {
+					res.json(failure);
+				}
+			});
+		};
 
         self.postRoutes["/update/:containerId/:weight"] = function(req, res) {
             var containerIdParam = parseInt(req.params.containerId);
@@ -180,7 +222,7 @@ var SampleApp = function() {
 
         	self.db.container.findAndModify({
         		query: {containerId: containerIdParam},
-        		update: {$set: {item: itemParam, itemWeight: [], date: []}},
+        		update: {$set: {item: itemParam, itemWeight: [1], date: [1440899980]}},
         	}, function (err, doc) {
         		if(!err) {
         			res.json(success);
@@ -205,7 +247,7 @@ var SampleApp = function() {
         }));
         self.app.use(bodyParser.json());
         self.app.use(bodyParser.raw());
-        self.db = mongojs(self.connectionString, ["container", "nutrition"]);
+        self.db = mongojs(self.connectionString, ["container", "nutrition", "recipe"]);
 
         //  Adding handlers for HTTP GET.
         for (var r in self.getRoutes) {
