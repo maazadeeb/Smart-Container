@@ -90,6 +90,16 @@ var SampleApp = function() {
         self.getRoutes = { };
         self.postRoutes = { };
 
+        // reset DB. DON'T call this unless you know what you are doing
+        self.getRoutes['/db/reset'] = function(req, res) {
+            var exec = require('child_process').exec;
+            exec('node ./dbReset.js', function (error, stdout, stderr) {
+                if (!error) {
+                    res.json(success);
+                }
+            });
+        };
+
         self.getRoutes["/getContainers"] = function(req, res) {
             console.log("Get containers..");
             res.setHeader("Content-Type", "application/json");
