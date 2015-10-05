@@ -1,0 +1,134 @@
+#include <SPI.h>
+#include <WiFi.h>
+float Akg=1.0000,Bkg=2.0000,Aval=27.0000,Bval=46.0000;
+char ssid[] = "Go_HOme_Mad";
+char pass[] = "callme+911";
+int keyIndex = 0;
+int status = WL_IDLE_STATUS;
+IPAddress server(192,168,2,2);
+int i,val=0,b[8],prev=0,temp=0;
+float kg;
+
+
+void setup() {
+  pinMode(9, INPUT);
+  pinMode(8, INPUT);
+  pinMode(7, INPUT);
+  pinMode(13, INPUT);
+  pinMode(5, INPUT);
+  pinMode(4, INPUT);
+  pinMode(12, INPUT);
+  pinMode(2, INPUT);
+  Serial.begin(9600); 
+
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println("WiFi shield not present"); 
+    while(true);
+  } 
+
+  String fv = WiFi.firmwareVersion();
+  if( fv != "1.1.0" )
+    Serial.println("Please upgrade the firmware");
+
+  // attempt to connect to Wifi network:
+  while (status != WL_CONNECTED) { 
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:    
+    status = WiFi.begin(ssid, pass);
+    // wait 10 seconds for connection:
+    delay(10000);
+  } 
+  Serial.println("Connected to wifi");
+  printWifiStatus();
+  
+  Serial.println("\nStarting connection to server...");
+  // if you get a connection, report back via serial:
+ 
+}
+
+void loop() {
+  
+  delay(1000);
+  getData();
+  //temp=val;
+  val=BoolToInt(b);
+  if(prev!=val)
+  {
+    //prev=temp;
+    if((prev-val) > 1 || (val-prev) > 1)
+    {
+        kg=valTokg(val);
+        sendData(kg);
+        Serial.print(kg); 
+        Serial.print("\n");
+    }
+        prev=val;
+  }
+}
+
+int BoolToInt(int b[8])
+{
+  int num=0;
+  for(i=7;i>=0;i--){
+  num=num+(b[i]*pow(2,i));
+  }
+  return num;
+}
+
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
+
+void sendData(float v)
+{
+   WiFiClient client;
+   client.connect(server, 8080);
+    Serial.println("sending data to server");
+    client.print("POST /update/1/");
+    client.print(v);
+    client.print(" HTTP/1.1\n");
+    //client.println("POST /13/14 HTTP/1.1\n");
+    client.println("Host:{192,168,2,2}");
+   client.println("Connection: Keep-Alive");
+  client.println();
+}
+
+void getData()
+{
+  if(digitalRead(9)==0)
+  b[7]=1;
+  else  
+  b[7]=0;
+  b[6]=digitalRead(8);
+  b[5]=digitalRead(7);
+  b[4]=digitalRead(13);
+  //b3=digitalRead(5);
+  if(digitalRead(5)==0)
+  b[3]=1;
+  else
+  b[3]=1;
+  b[2]=digitalRead(4);
+  b[1]=digitalRead(12);
+  b[0]=digitalRead(2);
+}
+
+float valTokg(int v)
+{
+  return ((float)v - Aval)*(Bkg-Akg)/(Bval-Aval)+Akg;
+}
+
+
